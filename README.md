@@ -122,3 +122,4 @@ StudentPortraitSystem/
 1. **数据驱动视图**：Mock 数据集中在 `setup()` 里，改数据 → 页面自动联动（个体画像的雷达/圆环/折线均为 `computed`，随学生切换自动更新）
 2. **图表安全**：ECharts 初始化前先检查 DOM 是否存在，地图加载失败自动降级为条形图，绝不因一个图表崩掉整页
 3. **大屏适配**：`body { min-width: 1280px }` 确保三列布局不坍塌，小屏横向滚动
+4. **开发环境**：Node.js 18+，Vite 5，`npm install && npm run dev` 即可启动
