@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 600" width="960" height="600">
+  <defs>
+    <!-- 样式 -->
+    <style>
+      .actor-line { stroke: #1f2d4d; stroke-width: 1.4; fill: none; }
+      .actor-head { fill: none; stroke: #1f2d4d; stroke-width: 1.6; }
+      .use-case-ellipse { fill: #f7faff; stroke: #2f6fed; stroke-width: 1.6; }
+      .uc-title { font-family: "PingFang SC", "Microsoft YaHei", sans-serif; font-size: 14px; fill: #1f2d4d; font-weight: 600; }
+      .actor-label { font-family: "PingFang SC", "Microsoft YaHei", sans-serif; font-size: 13px; fill: #1f2d4d; font-weight: 600; }
+      .sys-box { fill: rgba(240, 244, 248, 0.35); stroke: #2f6fed; stroke-width: 2; stroke-dasharray: 8 6; }
+      .sys-title { font-family: "PingFang SC", "Microsoft YaHei", sans-serif; font-size: 15px; fill: #2f6fed; font-weight: 700; }
+      .header-title { font-family: "PingFang SC", "Microsoft YaHei", sans-serif; font-size: 18px; fill: #1f2d4d; font-weight: 700; }
+      .actor-use { stroke: #3a4f73; stroke-width: 1.2; fill: none; }
+    </style>
+  </defs>
+
+  <!-- 背景 -->
+  <rect x="0" y="0" width="960" height="600" fill="#ffffff"/>
+
+  <!-- 标题 -->
+  <text x="480" y="36" text-anchor="middle" class="header-title">学生画像分析系统 · 用例图（Use Case Diagram）</text>
+
+  <!-- ============ 系统边界方框 ============ -->
+  <rect x="180" y="60" width="620" height="520" rx="14" class="sys-box"/>
+  <text x="490" y="86" text-anchor="middle" class="sys-title">学生画像系统</text>
+
+  <!-- ============ 左侧 Actor ============ -->
+
+  <!-- Actor 1：辅导员 / 班主任 -->
+  <g transform="translate(60, 180)">
+    <!-- 小人头 -->
+    <circle cx="0" cy="-36" r="14" class="actor-head"/>
+    <!-- 小人身体（一条竖线 + 两条斜线） -->
+    <line x1="0" y1="-22" x2="0" y2="28" class="actor-line"/>
+    <line x1="-22" y1="-4" x2="22" y2="-4" class="actor-line"/>
+    <line x1="0" y1="28" x2="-16" y2="52" class="actor-line"/>
+    <line x1="0" y1="28" x2="16" y2="52" class="actor-line"/>
+    <!-- 标签 -->
+    <text x="0" y="80" text-anchor="middle" class="actor-label">辅导员 / 班主任</text>
+  </g>
+
+  <!-- Actor 2：学院教学秘书 -->
+  <g transform="translate(60, 360)">
+    <circle cx="0" cy="-36" r="14" class="actor-head"/>
+    <line x1="0" y1="-22" x2="0" y2="28" class="actor-line"/>
+    <line x1="-22" y1="-4" x2="22" y2="-4" class="actor-line"/>
+    <line x1="0" y1="28" x2="-16" y2="52" class="actor-line"/>
+    <line x1="0" y1="28" x2="16" y2="52" class="actor-line"/>
+    <text x="0" y="80" text-anchor="middle" class="actor-label">学院教学秘书</text>
+  </g>
+
+  <!-- Actor 3：学工部门 -->
+  <g transform="translate(60, 520)">
+    <circle cx="0" cy="-36" r="14" class="actor-head"/>
+    <line x1="0" y1="-22" x2="0" y2="28" class="actor-line"/>
+    <line x1="-22" y1="-4" x2="22" y2="-4" class="actor-line"/>
+    <line x1="0" y1="28" x2="-16" y2="52" class="actor-line"/>
+    <line x1="0" y1="28" x2="16" y2="52" class="actor-line"/>
+    <text x="0" y="80" text-anchor="middle" class="actor-label">学工部门 / 管理员</text>
+  </g>
+
+  <!-- ============ 用例椭圆 ============ -->
+
+  <!-- UC-01 查看个体画像 -->
+  <g>
+    <ellipse cx="390" cy="150" rx="110" ry="30" class="use-case-ellipse"/>
+    <text x="390" y="154" text-anchor="middle" class="uc-title">UC-01 · 查看个体画像</text>
+  </g>
+
+  <!-- UC-02 综测雷达图对比 -->
+  <g>
+    <ellipse cx="390" cy="240" rx="130" ry="30" class="use-case-ellipse"/>
+    <text x="390" y="244" text-anchor="middle" class="uc-title">UC-02 · 综测六维雷达对比</text>
+  </g>
+
+  <!-- UC-03 校园活动 / 成绩 / 日常生活 -->
+  <g>
+    <ellipse cx="390" cy="330" rx="140" ry="30" class="use-case-ellipse"/>
+    <text x="390" y="334" text-anchor="middle" class="uc-title">UC-03 · 查看学生多维度数据</text>
+  </g>
+
+  <!-- UC-04 按条件筛选学生 -->
+  <g>
+    <ellipse cx="610" cy="150" rx="120" ry="30" class="use-case-ellipse"/>
+    <text x="610" y="154" text-anchor="middle" class="uc-title">UC-04 · 按条件筛选查询学生</text>
+  </g>
+
+  <!-- UC-05 查看群组画像 -->
+  <g>
+    <ellipse cx="610" cy="240" rx="120" ry="30" class="use-case-ellipse"/>
+    <text x="610" y="244" text-anchor="middle" class="uc-title">UC-05 · 查看群组画像分析</text>
+  </g>
+
+  <!-- UC-06 生源地 / 地图 / 排行 -->
+  <g>
+    <ellipse cx="610" cy="330" rx="140" ry="30" class="use-case-ellipse"/>
+    <text x="610" y="334" text-anchor="middle" class="uc-title">UC-06 · 生源地 / 年龄 / 少数民族</text>
+  </g>
+
+  <!-- UC-07 综合素质 / 请假趋势 -->
+  <g>
+    <ellipse cx="500" cy="440" rx="150" ry="30" class="use-case-ellipse"/>
+    <text x="500" y="444" text-anchor="middle" class="uc-title">UC-07 · 综合素质趋势 / 请假统计</text>
+  </g>
+
+  <!-- UC-08 跳转：查询 → 个体画像 -->
+  <g>
+    <ellipse cx="500" cy="530" rx="160" ry="30" class="use-case-ellipse"/>
+    <text x="500" y="534" text-anchor="middle" class="uc-title">UC-08 · 从查询结果一键进入个体画像</text>
+  </g>
+
+  <!-- ============ 连线（谁能做什么） ============ -->
+
+  <!-- 辅导员 → UC-01 / 02 / 03 / 04 / 05 / 08（核心使用者） -->
+  <!-- 辅导员头中心 ~ (60, 144) -->
+  <line x1="82" y1="144" x2="280" y2="138" class="actor-use"/>
+  <line x1="82" y1="150" x2="260" y2="232" class="actor-use"/>
+  <line x1="82" y1="156" x2="250" y2="322" class="actor-use"/>
+
+  <!-- 教学秘书 → UC-04 / 05 / 06 / 07 -->
+  <!-- 教学秘书头中心 ~ (60, 324) -->
+  <line x1="82" y1="324" x2="490" y2="140" class="actor-use"/>
+  <line x1="82" y1="328" x2="490" y2="230" class="actor-use"/>
+  <line x1="82" y1="334" x2="470" y2="320" class="actor-use"/>
+  <line x1="82" y1="338" x2="350" y2="432" class="actor-use"/>
+
+  <!-- 学工部门 → UC-05 / 06 / 07（宏观） -->
+  <!-- 学工头中心 ~ (60, 484) -->
+  <line x1="82" y1="478" x2="490" y2="250" class="actor-use"/>
+  <line x1="82" y1="484" x2="470" y2="340" class="actor-use"/>
+  <line x1="82" y1="490" x2="350" y2="450" class="actor-use"/>
+
+</svg>

@@ -1,0 +1,1419 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wisedu 学生画像分析系统</title>
+
+  <!-- Tailwind CSS (CDN) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Vue 3 (CDN) -->
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <!-- ECharts 5 (CDN) -->
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+
+  <style>
+    body {
+      font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
+      min-width: 1280px;
+    }
+    /* 顶部系统导航：浅蓝科技渐变 */
+    .nav-header {
+      background: linear-gradient(90deg, #eaf2ff 0%, #f4f8ff 55%, #eef4ff 100%);
+      border-bottom: 1px solid #dbe7fa;
+    }
+    .nav-item {
+      position: relative;
+      height: 60px;
+      display: inline-flex;
+      align-items: center;
+      padding: 0 26px;
+      font-size: 16px;
+      color: #5a6a85;
+      cursor: pointer;
+      transition: color 0.2s;
+    }
+    .nav-item:hover { color: #2f6fed; }
+    .nav-item.active { color: #2f6fed; font-weight: 600; }
+    .nav-item.active::after {
+      content: '';
+      position: absolute;
+      left: 20px; right: 20px; bottom: 0;
+      height: 3px;
+      border-radius: 3px 3px 0 0;
+      background: linear-gradient(90deg, #5b93f5, #2f6fed);
+    }
+
+    /* 二级 Tab：激活态蓝色胶囊 + 底部小三角 */
+    .sub-tab {
+      position: relative;
+      padding: 9px 24px;
+      font-size: 15px;
+      color: #5a6a85;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .sub-tab:hover { background: #f0f5ff; }
+    .sub-tab.active {
+      color: #fff;
+      font-weight: 700;
+      background: linear-gradient(135deg, #3f80ee, #1d5fd8);
+      box-shadow: 0 6px 14px rgba(47, 111, 237, 0.35);
+    }
+    .sub-tab.active::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      bottom: -9px;
+      transform: translateX(-50%);
+      border: 7px solid transparent;
+      border-top-color: #1d5fd8;
+    }
+
+    /* 数字人物舞台：科技光环 */
+    .ring {
+      position: absolute;
+      border-radius: 50%;
+      border-style: dashed;
+      pointer-events: none;
+    }
+    .ring-outer {
+      width: 480px; height: 480px; top: 20px; left: 50%; margin-left: -240px;
+      border-width: 2px;
+      border-color: rgba(246,197,68,.55) rgba(91,147,245,.25) rgba(53,211,163,.35);
+      animation: spin 40s linear infinite;
+    }
+    .ring-middle {
+      width: 380px; height: 380px; top: 70px; left: 50%; margin-left: -190px;
+      border-width: 1.5px;
+      border-color: rgba(91,147,245,.4) rgba(91,147,245,.1) rgba(246,197,68,.35);
+      animation: spin 28s linear infinite reverse;
+    }
+    .ring-inner {
+      width: 280px; height: 280px; top: 120px; left: 50%; margin-left: -140px;
+      border-width: 1px;
+      border-color: rgba(91,147,245,.3);
+      animation: spin 20s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* 学生画像查询：分页按钮 */
+    .page-btn {
+      min-width: 30px;
+      height: 30px;
+      padding: 0 8px;
+      border-radius: 6px;
+      border: 1px solid #dbe5f5;
+      background: #fff;
+      color: #5a6a85;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .page-btn:hover:not(:disabled) { border-color: #2f6fed; color: #2f6fed; }
+    .page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .page-btn-active,
+    .page-btn-active:hover {
+      background: #2f6fed;
+      border-color: #2f6fed;
+      color: #fff;
+      font-weight: 600;
+    }
+
+    /* 视图切换过渡 */
+    .view-fade-enter-active,
+    .view-fade-leave-active {
+      transition: opacity 0.18s ease, transform 0.18s ease;
+    }
+    .view-fade-enter-from,
+    .view-fade-leave-to {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+  </style>
+</head>
+
+<body class="min-h-screen" style="background-color: #f0f4f8;">
+  <div id="app">
+    <!-- ============ 顶部系统导航栏 ============ -->
+    <header class="nav-header sticky top-0 z-50">
+      <div class="h-[60px] px-7 flex items-center justify-between">
+        <div class="flex items-center">
+          <div class="flex items-center gap-3 mr-10">
+            <span class="text-[24px] font-extrabold italic tracking-tight text-[#1d5fd8]">
+              Wis<em class="text-[#f5a623] not-italic">edu</em>
+            </span>
+            <span class="w-px h-[22px] bg-[#c2d2ee]"></span>
+            <span class="text-[22px] font-bold text-[#1f2d4d] tracking-[2px]">学生画像</span>
+          </div>
+          <nav class="flex items-center">
+            <a
+              v-for="menu in menus"
+              :key="menu.key"
+              class="nav-item"
+              :class="{ active: activeMenu === menu.key }"
+              @click="activeMenu = menu.key"
+            >{{ menu.label }}</a>
+          </nav>
+        </div>
+        <div class="flex items-center gap-2 text-[#5a6a85] text-sm">
+          <span>古力拉杂提拔…</span>
+          <span class="text-[10px] text-[#93a1bb]">▾</span>
+          <span class="ml-2 w-[34px] h-[34px] rounded-full bg-gradient-to-br from-[#7db3ff] to-[#2f6fed] border-2 border-white shadow flex items-center justify-center text-white text-sm font-bold">古</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="p-6">
+      <transition name="view-fade">
+        <!-- ================================================================ -->
+        <!-- 视图一：个体画像                                                  -->
+        <!-- ================================================================ -->
+        <section v-if="activeMenu === 'individual'" key="individual" class="space-y-4">
+
+          <!-- 二级 Tab 栏 -->
+          <div class="bg-white rounded-xl shadow-sm px-5 h-[56px] flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span
+                v-for="tab in subTabs"
+                :key="tab"
+                class="sub-tab"
+                :class="{ active: activeTab === tab }"
+                @click="activeTab = tab"
+              >{{ tab }}</span>
+            </div>
+            <input
+              type="date"
+              v-model="queryDate"
+              class="h-[34px] rounded-lg border border-[#dbe5f5] px-3 text-[13px] text-[#5a6a85] bg-white"
+            />
+          </div>
+
+          <!-- 用户信息条 -->
+          <div class="bg-white rounded-xl shadow-sm px-5 py-3 flex items-center gap-3">
+            <img :src="avatarImg" alt="学生头像" class="w-[46px] h-[46px] rounded-full object-cover border-2 border-white shadow-[0_2px_10px_rgba(47,111,237,.3)]" />
+            <div>
+              <p class="text-[17px] font-bold text-[#1f2d4d] leading-tight">{{ student.name }}</p>
+              <p class="text-[13px] text-[#93a1bb] mt-0.5">{{ student.id }}</p>
+            </div>
+          </div>
+
+          <!-- 核心内容区：3 列 Grid -->
+          <div class="grid gap-4" style="grid-template-columns: 372px minmax(0,1fr) 400px;">
+
+            <!-- ============ 左侧列 ============ -->
+            <div class="space-y-4">
+              <!-- 卡片：综测情况 -->
+              <div class="bg-white rounded-xl shadow-sm p-5">
+                <h3 class="text-[16px] font-bold text-[#1f2d4d] flex items-center gap-2 mb-3">
+                  <span class="w-1 h-4 rounded bg-gradient-to-b from-[#5b93f5] to-[#2f6fed]"></span>
+                  综测情况
+                </h3>
+
+                <!-- 数据块 -->
+                <div class="rounded-[10px] bg-gradient-to-br from-[#f4f8ff] to-[#eef4ff] px-4 py-3.5 flex items-center gap-6">
+                  <div>
+                    <p class="text-[13px] text-[#8a97b1]">综测成绩</p>
+                    <p class="text-[26px] font-extrabold text-[#1f2d4d] leading-tight my-1">
+                      {{ student.score }}<span class="text-[14px] font-semibold"> 分</span>
+                    </p>
+                    <p class="text-[12px] text-[#93a1bb]">较去年 <span class="font-bold text-[#ff6b6b]">↗ {{ student.scoreDelta }}</span></p>
+                  </div>
+                  <div>
+                    <p class="text-[13px] text-[#8a97b1]">综测班级排名</p>
+                    <p class="text-[26px] font-extrabold text-[#1f2d4d] leading-tight my-1">
+                      第 <span class="text-[26px]">{{ student.classRank }}</span> 名
+                    </p>
+                    <p class="text-[12px] text-[#93a1bb]">较去年 <span class="font-bold text-[#35d3a3]">↘ {{ student.rankDelta }}</span></p>
+                  </div>
+                  <div class="ml-auto w-[52px] h-[58px] rounded-lg bg-gradient-to-br from-[#cfe0ff] to-[#9dbcf5] flex items-center justify-center text-white text-[22px] font-extrabold">
+                    A<sup class="text-[12px]">+</sup>
+                  </div>
+                </div>
+
+                <!-- 雷达图 -->
+                <p class="text-[14px] font-semibold text-[#5a6a85] mt-4 mb-1">综测测评项目成绩分布</p>
+                <div id="radarChart" class="w-full h-[268px]"></div>
+              </div>
+
+              <!-- 卡片：校园活动 -->
+              <div class="bg-white rounded-xl shadow-sm p-5">
+                <h3 class="text-[16px] font-bold text-[#1f2d4d] flex items-center gap-2 mb-3">
+                  <span class="w-1 h-4 rounded bg-gradient-to-b from-[#5b93f5] to-[#2f6fed]"></span>
+                  校园活动
+                </h3>
+                <div class="flex items-center gap-4">
+                  <!-- 圆环图（中心文字用绝对定位覆盖，图表 JS 下一步接入） -->
+                  <div class="relative w-[150px] h-[150px] shrink-0">
+                    <div id="pieChart" class="w-full h-full"></div>
+                    <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                      <span class="text-[20px] font-extrabold text-[#1f2d4d]">{{ student.activityCount }} 次</span>
+                      <span class="text-[12px] text-[#93a1bb]">学生活动数</span>
+                    </div>
+                  </div>
+                  <ul class="text-[14px] text-[#5a6a85] space-y-3.5">
+                    <li>学生竞赛次数：<b class="text-[16px] text-[#1f2d4d]">{{ student.competition }}</b> 次</li>
+                    <li>社会实践次数：<b class="text-[16px] text-[#1f2d4d]">{{ student.practice }}</b> 次</li>
+                    <li>志愿服务时长：<b class="text-[16px] text-[#1f2d4d]">{{ student.volunteer }}</b> 小时</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <!-- ============ 中间列：数字人物大卡片 ============ -->
+            <div class="bg-white rounded-xl shadow-sm relative overflow-hidden min-h-[740px] flex flex-col items-center px-6 pb-5"
+                 style="background: radial-gradient(420px 300px at 50% 36%, rgba(91,147,245,.16), transparent 70%), #fff;">
+
+              <!-- STUDENT 水印 -->
+              <span class="absolute top-7 text-[64px] font-black tracking-[6px] pointer-events-none select-none"
+                    style="color: rgba(47,111,237,.07);">STUDENT</span>
+              <!-- 科技光环 -->
+              <span class="ring ring-outer"></span>
+              <span class="ring ring-middle"></span>
+              <span class="ring ring-inner"></span>
+              <span class="absolute w-[420px] h-[420px] top-[36px] rounded-full pointer-events-none"
+                    style="background: radial-gradient(circle, rgba(120,180,255,.28), transparent 65%);"></span>
+
+              <!-- 人物 + 周边气泡 -->
+              <div class="relative z-10 mt-9 grid items-center" style="grid-template-columns: 150px 300px 150px;">
+                <!-- 左：姓名 / 基本信息 -->
+                <div class="text-right pr-1">
+                  <p class="text-[38px] font-black text-[#1f2d4d] mb-3 leading-none">{{ student.name }}</p>
+                  <p class="flex items-center justify-end gap-2.5 text-[15px] text-[#5a6a85]">
+                    <span>{{ student.gender }}</span><i class="w-px h-3 bg-[#c9d6ec]"></i>
+                    <span>{{ student.nation }}</span><i class="w-px h-3 bg-[#c9d6ec]"></i>
+                    <span>{{ student.political }}</span>
+                  </p>
+                </div>
+                <!-- 中：学生人物图片 -->
+                <div id="personWrap" class="w-full h-[500px] relative z-[2] flex items-center justify-center">
+                  <img id="personImg" :src="personImgSrc" alt="学生数字人物"
+                       class="max-h-full max-w-full object-contain"
+                       style="filter: drop-shadow(0 18px 30px rgba(47,111,237,.25));"
+                       @load="onPersonImgLoad" @error="onPersonImgError" />
+                  <p v-if="personLoading" class="absolute inset-0 flex items-center justify-center text-[#93a1bb] text-[15px] pointer-events-none">
+                    图片加载中...
+                  </p>
+                </div>
+                <!-- 右：学院气泡 -->
+                <div class="justify-self-start bg-white rounded-[10px] px-4 py-3 border-l-[3px] border-[#5b93f5] shadow-[0_8px_20px_rgba(47,111,237,.12)]">
+                  <p class="text-[14px] font-semibold text-[#1f2d4d] leading-relaxed">{{ student.college }}</p>
+                  <p class="text-[14px] text-[#5a6a85] leading-relaxed">{{ student.className }}</p>
+                </div>
+              </div>
+
+              <!-- 宿舍地址气泡（绝对定位） -->
+              <div class="absolute z-10 left-1/2 -translate-x-[165px] top-[330px] flex items-center gap-2.5 rounded-xl px-4 py-3 text-white shadow-[0_10px_22px_rgba(47,111,237,.35)]"
+                   style="background: linear-gradient(135deg,#6aa8f8,#3f80ee);">
+                <div>
+                  <p class="text-[13px] opacity-85">宿舍地址</p>
+                  <p class="text-[16px] font-bold mt-0.5">{{ student.dorm }}</p>
+                </div>
+                <span class="text-[30px] leading-none">🏢</span>
+              </div>
+
+              <!-- 右侧悬浮气泡（绝对定位） -->
+              <div class="absolute z-10 right-7 top-[300px] flex flex-col gap-2.5">
+                <span v-for="b in student.bubbles" :key="b"
+                      class="bg-white rounded-full px-4 py-1.5 text-[13px] text-[#5a6a85] shadow-[0_6px_14px_rgba(47,111,237,.12)]">{{ b }}</span>
+              </div>
+
+              <!-- 胶囊标签 -->
+              <div class="relative z-10 flex gap-3.5 mt-5">
+                <span v-for="t in student.tags" :key="t"
+                      class="inline-flex items-center h-7 px-4 rounded-full text-[13px] text-[#2f6fed] bg-[rgba(47,111,237,.08)] border border-[rgba(47,111,237,.18)] whitespace-nowrap">{{ t }}</span>
+              </div>
+
+              <!-- 底部三个数据统计框 -->
+              <div class="relative z-10 grid gap-3.5 w-full mt-4" style="grid-template-columns: 1fr 1.2fr 1fr;">
+                <!-- 获奖总数 -->
+                <div class="rounded-xl px-4 py-3.5 flex items-center gap-3"
+                     style="background: linear-gradient(120deg,#fff5e0,#ffeccb);">
+                  <span class="text-[30px]">🏅</span>
+                  <div>
+                    <p class="text-[24px] font-extrabold text-[#1f2d4d] leading-tight">{{ student.awards.toLocaleString() }}</p>
+                    <p class="text-[13px] text-[#8a97b1]">获奖总数</p>
+                  </div>
+                </div>
+                <!-- 奖学金数 / 荣誉称号数 -->
+                <div class="rounded-xl px-4 py-3.5 bg-[#f6f9ff] flex flex-col justify-center gap-2">
+                  <div class="flex items-center justify-between text-[13px] text-[#8a97b1]">
+                    <span>奖学金数</span><b class="text-[16px] text-[#1f2d4d]">{{ student.scholarship }}</b>
+                  </div>
+                  <div class="flex items-center justify-between text-[13px] text-[#8a97b1]">
+                    <span>荣誉称号数</span><b class="text-[16px] text-[#1f2d4d]">{{ student.honors }}</b>
+                  </div>
+                </div>
+                <!-- 违纪处分次数 -->
+                <div class="rounded-xl px-4 py-3.5 flex items-center gap-3"
+                     style="background: linear-gradient(120deg,#ffe9e9,#ffdede);">
+                  <span class="text-[30px]">🚩</span>
+                  <div>
+                    <p class="text-[24px] font-extrabold text-[#ff4d4f] leading-tight">{{ student.punish }}</p>
+                    <p class="text-[13px] text-[#8a97b1]">违纪处分次数</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ============ 右侧列 ============ -->
+            <div class="space-y-4">
+              <!-- 卡片：日常生活 -->
+              <div class="bg-white rounded-xl shadow-sm p-5">
+                <h3 class="text-[16px] font-bold text-[#1f2d4d] flex items-center gap-2 mb-3">
+                  <span class="w-1 h-4 rounded bg-gradient-to-b from-[#5b93f5] to-[#2f6fed]"></span>
+                  日常生活
+                </h3>
+                <div class="grid grid-cols-4 gap-2.5">
+                  <div v-for="item in lifeItems" :key="item.label"
+                       class="rounded-[10px] bg-[#f7faff] py-3 px-1 text-center">
+                    <span class="w-9 h-9 mx-auto mb-2 rounded-[10px] flex items-center justify-center text-[17px]"
+                          :style="{ background: item.bg, color: item.color }">{{ item.icon }}</span>
+                    <p class="text-[11px] text-[#8a97b1] whitespace-nowrap">{{ item.label }}</p>
+                    <p class="text-[20px] font-extrabold text-[#1f2d4d] mt-0.5">
+                      {{ item.value }}<span class="text-[11px] font-medium text-[#93a1bb]">{{ item.unit }}</span>
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 卡片：学业成绩 -->
+              <div class="bg-white rounded-xl shadow-sm p-5">
+                <h3 class="text-[16px] font-bold text-[#1f2d4d] flex items-center gap-2 mb-3">
+                  <span class="w-1 h-4 rounded bg-gradient-to-b from-[#5b93f5] to-[#2f6fed]"></span>
+                  学业成绩
+                </h3>
+
+                <!-- 数据块 -->
+                <div class="grid gap-2 items-center" style="grid-template-columns: 76px 1fr 1fr 1fr;">
+                  <div class="text-center bg-[#f2f6ff] rounded-[10px] py-2.5">
+                    <p class="text-[26px] font-extrabold text-[#1650c8] leading-tight">{{ student.gpa }}</p>
+                    <p class="text-[12px] text-[#8a97b1]">绩点</p>
+                  </div>
+                  <div class="text-[12px] text-[#8a97b1] leading-[1.9] pl-3 border-l border-[#edf2fb]">
+                    <p>班级排名 <b class="text-[16px] text-[#1f2d4d]">{{ student.classRank }} <span class="text-[11px] text-[#93a1bb]">/ {{ student.classTotal }}</span></b></p>
+                    <p>专业排名 <b class="text-[16px] text-[#1f2d4d]">{{ student.majorRank }} <span class="text-[11px] text-[#93a1bb]">/ {{ student.majorTotal }}</span></b></p>
+                  </div>
+                  <div class="text-[12px] text-[#8a97b1] pl-3 border-l border-[#edf2fb]">
+                    <p>已获学分</p>
+                    <p class="text-[20px] font-extrabold text-[#18b950]">{{ student.credits }}<span class="text-[11px] font-medium"> 分</span></p>
+                  </div>
+                  <div class="text-[12px] text-[#8a97b1] pl-3 border-l border-[#edf2fb]">
+                    <p>挂科门数</p>
+                    <p class="text-[20px] font-extrabold text-[#ff4d4f]">{{ student.failCount }}<span class="text-[11px] font-medium"> 门</span></p>
+                  </div>
+                </div>
+
+                <!-- 成绩趋势折线图 -->
+                <p class="text-[14px] font-semibold text-[#5a6a85] mt-4 mb-1">成绩趋势情况</p>
+                <div id="lineChart" class="w-full h-[200px]"></div>
+
+                <!-- 排名行 -->
+                <div class="mt-1.5 space-y-2">
+                  <div class="grid items-center text-[13px] text-[#5a6a85]" style="grid-template-columns: 64px repeat(3,1fr);">
+                    <span class="rounded-md text-center text-[12px] py-[3px] text-white bg-[#5b8def]">必修课</span>
+                    <span v-for="(r,i) in rankTable.required" :key="'r'+i" class="text-center font-semibold">{{ r }}</span>
+                  </div>
+                  <div class="grid items-center text-[13px] text-[#5a6a85]" style="grid-template-columns: 64px repeat(3,1fr);">
+                    <span class="rounded-md text-center text-[12px] py-[3px] text-white bg-[#35d3a3]">选修课</span>
+                    <span v-for="(r,i) in rankTable.elective" :key="'e'+i" class="text-center font-semibold">{{ r }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================================================================ -->
+        <!-- 视图二：群组分析                                                  -->
+        <!-- ================================================================ -->
+        <section v-else-if="activeMenu === 'group'" key="group" class="space-y-4">
+
+          <!-- 筛选工具栏 -->
+          <div class="bg-white rounded-xl shadow-sm px-5 py-3.5 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <span class="text-[22px] font-extrabold text-[#1f2d4d]">{{ groupCollege }}</span>
+              <button class="h-7 px-3 rounded-md border border-[#dbe5f5] bg-white text-[13px] text-[#5a6a85] flex items-center gap-1">
+                切换 <span class="text-[10px] text-[#93a1bb]">▾</span>
+              </button>
+            </div>
+            <div class="flex items-center gap-3">
+              <!-- 全校 / 学院 切换 -->
+              <div class="flex rounded-md border border-[#cdddff] overflow-hidden">
+                <button
+                  v-for="s in scopeOptions"
+                  :key="s"
+                  class="px-[18px] py-[6px] text-[13px]"
+                  :class="activeScope === s ? 'bg-[#2f6fed] text-white' : 'bg-white text-[#5a6a85]'"
+                  @click="activeScope = s"
+                >{{ s }}</button>
+              </div>
+              <select v-model="groupCollege"
+                      class="h-[34px] rounded-lg border border-[#dbe5f5] px-3 text-[13px] text-[#5a6a85] bg-white min-w-[150px]">
+                <option v-for="c in collegeOptions" :key="c" :value="c">{{ c }}</option>
+              </select>
+              <input type="date" v-model="groupDate"
+                     class="h-[34px] rounded-lg border border-[#dbe5f5] px-3 text-[13px] text-[#5a6a85] bg-white" />
+            </div>
+          </div>
+
+          <!-- 三级 Tab 栏 -->
+          <div class="bg-white rounded-xl shadow-sm px-5 h-[46px] flex items-center gap-9">
+            <span
+              v-for="tab in groupTabs"
+              :key="tab"
+              class="group-tab text-[15px] cursor-pointer relative py-[13px]"
+              :class="activeGroupTab === tab ? 'text-[#2f6fed] font-bold' : 'text-[#5a6a85]'"
+              @click="activeGroupTab = tab"
+            >
+              {{ tab }}
+              <span v-if="activeGroupTab === tab"
+                    class="absolute left-0 right-0 bottom-0 h-[3px] rounded bg-[#2f6fed]"></span>
+            </span>
+          </div>
+
+          <!-- 内容区：3 列 × 3 行 -->
+          <div class="grid gap-4" style="grid-template-columns: 330px minmax(0,1fr) 370px;">
+
+            <!-- ===== 第一行 · 左：学生人数分布 ===== -->
+            <div class="bg-white rounded-xl shadow-sm p-5 h-[300px]">
+              <h3 class="text-[16px] font-bold text-[#1f2d4d] flex items-center gap-2 mb-3">
+                <span class="w-1 h-4 rounded bg-gradient-to-b from-[#5b93f5] to-[#2f6fed]"></span>
+                学生人数分布
+              </h3>
+              <ul class="flex flex-col gap-2.5">
+                <li v-for="(c, i) in collegeDist" :key="i"
+                    class="h-10 rounded-lg px-3.5 flex items-center text-[13px] cursor-pointer transition-colors"
+                    style="background: linear-gradient(90deg,#f3f7ff,#eef4ff);">
+                  <span class="flex-1 text-[#5a6a85] truncate">{{ c.name }}</span>
+                  <span class="font-bold text-[#1f2d4d]">{{ c.count }} 人</span>
+                  <span class="ml-2 text-[#9fb2d4] text-[16px]">›</span>
+                </li>
+              </ul>
+            </div>
+
+            <!-- ===== 第一行 · 中：学生人数概况 ===== -->
+            <div class="bg-white rounded-xl shadow-sm p-5 h-[300px]">
+              <h3 class="text-[16px] font-bold text-[#1f2d4d] flex items-center gap-2 mb-1">
+                <span class="w-1 h-4 rounded bg-gradient-to-b from-[#5b93f5] to-[#2f6fed]"></span>
+                学生人数概况
+              </h3>
+              <div class="grid items-center h-[calc(100%-36px)]" style="grid-template-columns: 1fr 1.2fr 1fr;">
+                <!-- 左两个半圆仪表 -->
+                <div class="flex flex-col justify-around h-full">
+                  <div v-for="g in [groupGauges[0], groupGauges[1]]" :key="g.id" class="flex flex-col items-center">
+                    <svg viewBox="0 0 100 60" class="w-[128px] h-[76px]">
+                      <defs>
+                        <linearGradient :id="g.id" x1="0" y1="0" x2="1" y2="0">
+                          <stop offset="0%" :stop-color="g.c1" />
+                          <stop offset="100%" :stop-color="g.c2" />
+                        </linearGradient>
+                      </defs>
+                      <path d="M10 52 A40 40 0 0 1 90 52" fill="none" stroke="#eaf1fc" stroke-width="9" stroke-linecap="round" />
+                      <path d="M10 52 A40 40 0 0 1 90 52" fill="none" :stroke="`url(#${g.id})`"
+                            stroke-width="9" stroke-linecap="round"
+                            :style="{ strokeDasharray: (125.66 * g.percent / 100) + ' 200' }" />
+                      <text x="50" y="42" text-anchor="middle" class="fill-[#1f2d4d]" style="font-size:24px;font-weight:700;">
+                        {{ g.percent }}<tspan style="font-size:12px;font-weight:500;" class="fill-[#5a6a85]">%</tspan>
+                      </text>
+                    </svg>
+                    <p class="text-[13px] text-[#8a97b1] -mt-0.5">{{ g.label }}<span class="text-[#1f2d4d] font-semibold ml-0.5">{{ g.sub }}</span></p>
+                  </div>
+                </div>
+                <!-- 中：插画 + 总数 -->
+                <div class="flex flex-col items-center">
+                  <img :src="overviewImg" alt="学生人数概况" class="w-full max-w-[230px] object-contain" />
+                  <p class="text-[15px] text-[#5a6a85] -mt-1">
+                    学生总数 <b class="text-[28px] text-[#1650c8] mx-1">{{ overview.total.toLocaleString() }}</b> 人
+                  </p>
+                </div>
+                <!-- 右两个半圆仪表 -->
+                <div class="flex flex-col justify-around h-full">
+                  <div v-for="g in [groupGauges[2], groupGauges[3]]" :key="g.id" class="flex flex-col items-center">
+                    <svg viewBox="0 0 100 60" class="w-[128px] h-[76px]">
+                      <defs>
+                        <linearGradient :id="g.id" x1="0" y1="0" x2="1" y2="0">
+                          <stop offset="0%" :stop-color="g.c1" />
+                          <stop offset="100%" :stop-color="g.c2" />
+                        </linearGradient>
+                      </defs>
+                      <path d="M10 52 A40 40 0 0 1 90 52" fill="none" stroke="#eaf1fc" stroke-width="9" stroke-linecap="round" />
+                      <path d="M10 52 A40 40 0 0 1 90 52" fill="none" :stroke="`url(#${g.id})`"
+                            stroke-width="9" stroke-linecap="round"
+                            :style="{ strokeDasharray: (125.66 * g.percent / 100) + ' 200' }" />
+                      <text x="50" y="42" text-anchor="middle" class="fill-[#1f2d4d]" style="font-size:24px;font-weight:700;">
+                        {{ g.percent }}<tspan style="font-size:12px;font-weight:500;" class="fill-[#5a6a85]">%</tspan>
+                      </text>
+                    </svg>
+                    <p class="text-[13px] text-[#8a97b1] -mt-0.5">{{ g.label }}<span class="text-[#1f2d4d] font-semibold ml-0.5">{{ g.sub }}</span></p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ===== 第一行 · 右：政治面貌分布 ===== -->
+            <div class="bg-white rounded-xl shadow-sm p-5 h-[300px]">
+              <h3 class="text-[16px] font-bold text-[#1f2d4d] flex items-center gap-2 mb-1">
+                <span class="w-1 h-4 rounded bg-gradient-to-b from-[#5b93f5] to-[#2f6fed]"></span>
+                政治面貌分布
+              </h3>
+              <div id="politicalChart" class="w-full h-[252px]"></div>
+            </div>
+
+            <!-- ===== 第二行 · 左：学生年龄结构 ===== -->
+            <div class="bg-white rounded-xl shadow-sm p-5 h-[420px]">
+              <h3 class="text-[16px] font-bold text-[#1f2d4d] flex items-center gap-2 mb-1">
+                <span class="w-1 h-4 rounded bg-gradient-to-b from-[#5b93f5] to-[#2f6fed]"></span>
+                学生年龄结构
+              </h3>
+              <div id="ageChart" class="w-full h-[360px]"></div>
+            </div>
+
+            <!-- ===== 第二行 · 中：生源地分布 ===== -->
+            <div class="bg-white rounded-xl shadow-sm p-5 h-[420px]">
+              <h3 class="text-[16px] font-bold text-[#1f2d4d] flex items-center gap-2 mb-1">
+                <span class="w-1 h-4 rounded bg-gradient-to-b from-[#5b93f5] to-[#2f6fed]"></span>
+                生源地分布
+              </h3>
+              <div id="mapChart" class="w-full h-[360px] min-w-0"></div>
+            </div>
+
+            <!-- ===== 第二行 · 右：少数民族学生 ===== -->
+            <div class="bg-white rounded-xl shadow-sm p-5 h-[420px]">
+              <h3 class="text-[16px] font-bold text-[#1f2d4d] flex items-center gap-2 mb-3">
+                <span class="w-1 h-4 rounded bg-gradient-to-b from-[#5b93f5] to-[#2f6fed]"></span>
+                少数民族学生
+              </h3>
+              <!-- 汇总条 -->
+              <div class="rounded-[10px] px-3.5 py-2.5 flex items-center gap-2 text-[13px] text-[#5a6a85] mb-3"
+                   style="background: linear-gradient(90deg,#eaf2ff,#f4f8ff);">
+                <span class="text-[17px]">🏞️</span>
+                <span class="flex-1 font-semibold text-[#1f2d4d]">少数民族</span>
+                <span><b class="text-[15px] text-[#1f2d4d]">6</b> 种</span>
+                <span><b class="text-[15px] text-[#1f2d4d]">80</b> 人</span>
+                <span><b class="text-[15px] text-[#1f2d4d]">8</b> %</span>
+              </div>
+              <div id="minorityChart" class="w-full h-[322px]"></div>
+            </div>
+
+            <!-- ===== 第三行 · 左：综合素质发展（跨 2 列） ===== -->
+            <div class="bg-white rounded-xl shadow-sm p-5 h-[300px] col-span-2">
+              <h3 class="text-[16px] font-bold text-[#1f2d4d] flex items-center gap-2 mb-1">
+                <span class="w-1 h-4 rounded bg-gradient-to-b from-[#5b93f5] to-[#2f6fed]"></span>
+                综合素质发展
+              </h3>
+              <div class="flex h-[calc(100%-36px)]">
+                <!-- 两个比例圆环（静态结构，后续可换水球图） -->
+                <div class="w-[300px] shrink-0 flex items-center justify-around">
+                  <div v-for="q in qualityRings" :key="q.name" class="relative w-[140px] h-[140px]">
+                    <svg viewBox="0 0 100 100" class="w-full h-full -rotate-90">
+                      <circle cx="50" cy="50" r="42" fill="none" stroke="#eef3fc" stroke-width="10" />
+                      <circle cx="50" cy="50" r="42" fill="none" :stroke="q.color" stroke-width="10"
+                              stroke-linecap="round"
+                              :style="{ strokeDasharray: (263.89 * q.percent / 100) + ' 263.89' }" />
+                    </svg>
+                    <div class="absolute inset-0 flex flex-col items-center justify-center">
+                      <span class="text-[12px]" :style="{ color: q.color }">{{ q.name }}</span>
+                      <span class="text-[24px] font-extrabold text-[#1f2d4d]">{{ q.percent }}%</span>
+                      <span class="text-[12px] text-[#8a97b1]">{{ q.count.toLocaleString() }} 人</span>
+                    </div>
+                  </div>
+                </div>
+                <!-- 近5年综测趋势（图表容器） -->
+                <div class="flex-1 flex flex-col min-w-0 w-full">
+                  <p class="text-[14px] font-semibold text-[#5a6a85]">近5年学生综测平均分情况</p>
+                  <div id="comprehensiveChart" class="flex-1 min-h-0 w-full"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ===== 第三行 · 右：近7天学生请假情况 ===== -->
+            <div class="bg-white rounded-xl shadow-sm p-5 h-[300px]">
+              <h3 class="text-[16px] font-bold text-[#1f2d4d] flex items-center gap-2 mb-1">
+                <span class="w-1 h-4 rounded bg-gradient-to-b from-[#5b93f5] to-[#2f6fed]"></span>
+                近7天学生请假情况
+              </h3>
+              <div id="leaveChart" class="w-full h-[248px]"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================================================================ -->
+        <!-- 视图三：学生画像查询                                              -->
+        <!-- ================================================================ -->
+        <section v-else key="query" class="space-y-4">
+
+          <!-- 筛选工具栏 -->
+          <div class="bg-white rounded-xl shadow-sm p-5">
+            <div class="flex flex-wrap items-center gap-3">
+              <div class="relative">
+                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-[14px]">🔍</span>
+                <input v-model="draft.keyword" @keyup.enter="searchNow"
+                       placeholder="输入学号 / 姓名"
+                       class="w-[230px] h-[36px] rounded-lg border border-[#dbe5f5] pl-9 pr-3 text-[13px] text-[#1f2d4d] placeholder-[#93a1bb] bg-white outline-none focus:border-[#2f6fed]" />
+              </div>
+              <select v-model="draft.college"
+                      class="h-[36px] rounded-lg border border-[#dbe5f5] px-3 text-[13px] text-[#5a6a85] bg-white">
+                <option value="全部学院">全部学院</option>
+                <option v-for="c in collegeOptions" :key="c" :value="c">{{ c }}</option>
+              </select>
+              <select v-model="draft.grade"
+                      class="h-[36px] rounded-lg border border-[#dbe5f5] px-3 text-[13px] text-[#5a6a85] bg-white">
+                <option value="全部年级">全部年级</option>
+                <option v-for="g in ['2018级', '2019级', '2020级', '2021级']" :key="g" :value="g">{{ g }}</option>
+              </select>
+              <select v-model="draft.gender"
+                      class="h-[36px] rounded-lg border border-[#dbe5f5] px-3 text-[13px] text-[#5a6a85] bg-white">
+                <option value="全部">全部性别</option>
+                <option value="男">男</option>
+                <option value="女">女</option>
+              </select>
+              <select v-model="draft.status"
+                      class="h-[36px] rounded-lg border border-[#dbe5f5] px-3 text-[13px] text-[#5a6a85] bg-white">
+                <option value="全部">全部状态</option>
+                <option value="在学">在学</option>
+                <option value="不在学">不在学</option>
+              </select>
+              <button @click="searchNow"
+                      class="h-[36px] px-7 rounded-lg text-white text-[14px] font-semibold shadow-[0_4px_12px_rgba(47,111,237,.35)]"
+                      style="background: linear-gradient(135deg, #3f80ee, #1d5fd8);">查 询</button>
+              <button @click="resetSearch"
+                      class="h-[36px] px-5 rounded-lg border border-[#dbe5f5] text-[#5a6a85] text-[14px] bg-white">重 置</button>
+            </div>
+          </div>
+
+          <!-- 查询结果 -->
+          <div class="bg-white rounded-xl shadow-sm p-5">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-[16px] font-bold text-[#1f2d4d] flex items-center gap-2">
+                <span class="w-1 h-4 rounded bg-gradient-to-b from-[#5b93f5] to-[#2f6fed]"></span>
+                查询结果
+              </h3>
+              <p class="text-[13px] text-[#8a97b1]">共 <b class="text-[#2f6fed] text-[16px]">{{ filteredStudents.length }}</b> 名学生</p>
+            </div>
+
+            <div class="overflow-x-auto">
+              <table class="w-full text-[13px] min-w-[1100px]">
+                <thead>
+                  <tr class="text-left text-[#8a97b1]">
+                    <th class="py-2.5 px-3 font-semibold bg-[#f5f8ff] rounded-l-lg">学号</th>
+                    <th class="py-2.5 px-3 font-semibold bg-[#f5f8ff]">姓名</th>
+                    <th class="py-2.5 px-3 font-semibold bg-[#f5f8ff]">性别</th>
+                    <th class="py-2.5 px-3 font-semibold bg-[#f5f8ff]">学院</th>
+                    <th class="py-2.5 px-3 font-semibold bg-[#f5f8ff]">专业</th>
+                    <th class="py-2.5 px-3 font-semibold bg-[#f5f8ff]">年级</th>
+                    <th class="py-2.5 px-3 font-semibold bg-[#f5f8ff]">状态</th>
+                    <th class="py-2.5 px-3 font-semibold bg-[#f5f8ff]">综测成绩</th>
+                    <th class="py-2.5 px-3 font-semibold bg-[#f5f8ff]">绩点</th>
+                    <th class="py-2.5 px-3 font-semibold bg-[#f5f8ff]">班级排名</th>
+                    <th class="py-2.5 px-3 font-semibold bg-[#f5f8ff]">标签</th>
+                    <th class="py-2.5 px-3 font-semibold bg-[#f5f8ff] rounded-r-lg text-center">操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="s in pagedStudents" :key="s.id"
+                      class="border-b border-[#f0f4fa] hover:bg-[#f7faff] cursor-pointer transition-colors"
+                      @click="goPortrait(s)">
+                    <td class="py-3 px-3 text-[#5a6a85]">{{ s.id }}</td>
+                    <td class="py-3 px-3">
+                      <span class="flex items-center gap-2 font-semibold text-[#1f2d4d]">
+                        <span class="w-6 h-6 shrink-0 rounded-full bg-gradient-to-br from-[#7db3ff] to-[#2f6fed] text-white text-[11px] flex items-center justify-center">{{ s.name[0] }}</span>
+                        {{ s.name }}
+                      </span>
+                    </td>
+                    <td class="py-3 px-3 text-[#5a6a85]">{{ s.gender }}</td>
+                    <td class="py-3 px-3 text-[#5a6a85] whitespace-nowrap">{{ s.college }}</td>
+                    <td class="py-3 px-3 text-[#5a6a85]">{{ s.major }}</td>
+                    <td class="py-3 px-3 text-[#5a6a85]">{{ s.grade }}</td>
+                    <td class="py-3 px-3">
+                      <span class="inline-flex items-center gap-1.5 whitespace-nowrap"
+                            :class="s.status === '在学' ? 'text-[#18b950]' : 'text-[#93a1bb]'">
+                        <i class="inline-block w-1.5 h-1.5 rounded-full" :style="{ background: s.status === '在学' ? '#18b950' : '#c3cde0' }"></i>
+                        {{ s.status }}
+                      </span>
+                    </td>
+                    <td class="py-3 px-3 font-bold"
+                        :class="s.score >= 90 ? 'text-[#2f6fed]' : s.score >= 60 ? 'text-[#1f2d4d]' : 'text-[#ff6b6b]'">{{ s.score }}</td>
+                    <td class="py-3 px-3 font-semibold text-[#1f2d4d]">{{ s.gpa }}</td>
+                    <td class="py-3 px-3 text-[#5a6a85]">{{ s.classRank }} / {{ s.classTotal }}</td>
+                    <td class="py-3 px-3">
+                      <span v-for="t in s.tags.slice(0, 2)" :key="t"
+                            class="inline-block mr-1 mb-0.5 px-2 py-0.5 rounded-full text-[11px] text-[#2f6fed] bg-[rgba(47,111,237,.08)] whitespace-nowrap">{{ t }}</span>
+                      <span v-if="s.tags.length > 2" class="text-[11px] text-[#93a1bb]">+{{ s.tags.length - 2 }}</span>
+                    </td>
+                    <td class="py-3 px-3 text-center">
+                      <button class="text-[#2f6fed] hover:text-[#1d5fd8] font-semibold whitespace-nowrap" @click.stop="goPortrait(s)">
+                        查看画像 →
+                      </button>
+                    </td>
+                  </tr>
+                  <tr v-if="!pagedStudents.length">
+                    <td colspan="12" class="py-14 text-center text-[#93a1bb]">
+                      <p class="text-[28px] mb-2">🔍</p>
+                      未找到符合条件的学生，请调整筛选条件后重试
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- 分页 -->
+            <div v-if="filteredStudents.length" class="flex items-center justify-between mt-4">
+              <p class="text-[12px] text-[#93a1bb]">
+                第 {{ (page - 1) * pageSize + 1 }}-{{ Math.min(page * pageSize, filteredStudents.length) }} 条 / 共 {{ filteredStudents.length }} 条
+              </p>
+              <div class="flex items-center gap-1.5">
+                <button class="page-btn" :disabled="page === 1" @click="page--">‹</button>
+                <button v-for="p in totalPages" :key="p"
+                        class="page-btn" :class="{ 'page-btn-active': p === page }"
+                        @click="page = p">{{ p }}</button>
+                <button class="page-btn" :disabled="page === totalPages" @click="page++">›</button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </transition>
+    </main>
+  </div>
+
+  <script>
+    const { createApp, ref, reactive, computed, nextTick, onMounted, watch } = Vue
+
+    createApp({
+      setup() {
+        /* ---------- 系统级菜单 ---------- */
+        const menus = [
+          { key: 'individual', label: '个体画像' },
+          { key: 'group', label: '群组分析' },
+          { key: 'query', label: '学生画像查询' }
+        ]
+        const activeMenu = ref('individual')
+
+        /* ---------- 个体画像：二级 Tab ---------- */
+        const subTabs = ['总览', '日常生活', '校园活动', '奖惩信息', '资助信息', '学业信息', '成长轨迹']
+        const activeTab = ref('总览')
+        const queryDate = ref('2022-02-14')
+
+        /* ---------- 学生 Mock 数据（集中管理，模板全部绑定） ---------- */
+        const student = reactive({
+          name: '杨灿君',
+          id: '01116118',
+          gender: '男',
+          nation: '汉族',
+          political: '中共党员',
+          college: '外国语学院',
+          className: '俄语教研室15班',
+          dorm: '江宁校区5栋602',
+          // 综测
+          score: 98,
+          scoreDelta: 25,
+          classRank: 5,
+          classTotal: 50,
+          majorRank: 25,
+          majorTotal: 258,
+          rankDelta: 2,
+          // 校园活动
+          activityCount: 30,
+          competition: 1,
+          practice: 8,
+          volunteer: 5,
+          // 日常生活
+          cardBalance: 155,
+          books: 5,
+          onlineHours: 2,
+          leaveCount: 35,
+          // 学业
+          gpa: 9.8,
+          credits: 64,
+          failCount: 1,
+          // 荣誉
+          awards: 6466,
+          scholarship: 875,
+          honors: 58,
+          punish: 1,
+          // 标签
+          tags: ['学业优秀', 'CET-6', '国家奖学金', '困难生', '三好学生'],
+          bubbles: ['学生楷模', '男博士', '90后']
+        })
+
+        /* 学号种子：为每个学生生成确定性的 mock 派生数据 */
+        const seedOf = (id) => [...String(id)].reduce((s, c) => s + c.charCodeAt(0), 0)
+
+        /* 日常生活四色块（随学生切换联动） */
+        const lifeItems = computed(() => [
+          { label: '一卡通余额', value: student.cardBalance, unit: '元', icon: '💳', bg: '#e3eeff', color: '#2f6fed' },
+          { label: '本月借阅图书', value: student.books, unit: '本', icon: '⚡', bg: '#fff4d9', color: '#eaa312' },
+          { label: '本月上网时长', value: student.onlineHours, unit: '小时', icon: '🕘', bg: '#dcf7f2', color: '#18b9a6' },
+          { label: '本月请假数', value: student.leaveCount, unit: '次', icon: '🗓️', bg: '#e6eaff', color: '#6a7fe0' }
+        ])
+
+        /* 成绩趋势排名行（随学生切换联动） */
+        const rankTable = computed(() => {
+          const s = seedOf(student.id)
+          return {
+            required: [`第 ${1 + (s % 3)} 名`, `第 ${1 + (s % 4)} 名`, `第 ${1 + (s % 2)} 名`],
+            elective: [`第 ${3 + (s % 6)} 名`, `第 ${8 + (s % 10)} 名`, `第 ${20 + (s % 40)} 名`]
+          }
+        })
+
+        /* ---------- 群组分析 Mock 数据 ---------- */
+        const collegeOptions = ['机械学院', '计算学院', '外国语学院', '经济管理学院', '土木建筑工程学院']
+        const groupCollege = ref('机械学院')
+        const groupDate = ref('2022-02-14')
+        const scopeOptions = ['全校', '学院']
+        const activeScope = ref('学院')
+        const groupTabs = ['基本信息', '日常生活', '校园活动', '奖惩信息', '资助信息', '学业信息', '毕业去向']
+        const activeGroupTab = ref('基本信息')
+
+        // 学生人数分布列表
+        const collegeDist = [
+          { name: '学院名称学院名称', count: 710 },
+          { name: '学院名称学院名称', count: 710 },
+          { name: '学院名称学院名称', count: 710 },
+          { name: '学院名称学院名称', count: 710 },
+          { name: '学院名称学院名称', count: 710 }
+        ]
+
+        // 学生人数概况
+        const overview = reactive({ total: 12068 })
+        const groupGauges = [
+          { id: 'gg1', percent: 89, label: '在学籍数', sub: '10,098 人', c1: '#7db3ff', c2: '#2f6fed' },
+          { id: 'gg2', percent: 11, label: '不在学籍数', sub: '782 人', c1: '#9fb6d9', c2: '#6b86ad' },
+          { id: 'gg3', percent: 75, label: '男生数', sub: '10,098 人', c1: '#ffd98a', c2: '#f5a623' },
+          { id: 'gg4', percent: 25, label: '女生数', sub: '782 人', c1: '#ffe9c2', c2: '#f6c544' }
+        ]
+
+        // 综合素质比例环
+        const qualityRings = [
+          { name: '综测合格', percent: 70, count: 10098, color: '#2f6fed' },
+          { name: '综测不合格', percent: 30, count: 8124, color: '#ff6b6b' }
+        ]
+
+        const overviewImg =
+          'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=' +
+          encodeURIComponent('flat vector illustration of a college student standing beside a giant web browser window with charts, blue and orange color scheme, white background, isometric style') +
+          '&image_size=landscape_4_3'
+
+        /* ==================== ECharts 图表区 ==================== */
+        const hasEcharts = typeof echarts !== 'undefined'
+        const chartInstances = {}
+
+        // 取图表实例：容器存在则复用/新建，不存在返回 null（不阻断页面）
+        const getChart = (id) => {
+          if (!hasEcharts) return null
+          const el = document.getElementById(id)
+          if (!el) return null
+          if (!chartInstances[id] || chartInstances[id].isDisposed()) {
+            try { chartInstances[id] = echarts.init(el) } catch (e) { return null }
+          }
+          return chartInstances[id]
+        }
+
+        // 视图切换后 DOM 被 v-if 销毁，旧实例统一释放
+        const disposeAllCharts = () => {
+          if (!hasEcharts) return
+          Object.keys(chartInstances).forEach((id) => {
+            try { if (!chartInstances[id].isDisposed()) chartInstances[id].dispose() } catch (e) { /* ignore */ }
+            delete chartInstances[id]
+          })
+        }
+
+        window.addEventListener('resize', () => {
+          Object.values(chartInstances).forEach((c) => { try { c && c.resize() } catch (e) {} })
+        })
+
+        /* ---------------- 个体画像：综测雷达图（个人/班级最高分/班级均分，满分20） ---------------- */
+        const radarOption = computed(() => {
+          const s = seedOf(student.id)
+          const v = (i) => 10 + ((s >> (i * 2)) % 10)
+          return {
+            color: ['#8a6cf0', '#35d3a3', '#5b93f5'],
+            tooltip: {},
+            legend: {
+              orient: 'vertical', right: 0, top: 'center', icon: 'circle',
+              itemWidth: 10, itemHeight: 10, itemGap: 22,
+              textStyle: { color: '#5a6a85', fontSize: 13 }
+            },
+            radar: {
+              center: ['38%', '52%'], radius: '66%', splitNumber: 3,
+              indicator: [
+                { name: '思想品德素质', max: 20 },
+                { name: '劳动实践能力', max: 20 },
+                { name: '文化艺术素养', max: 20 },
+                { name: '业务能力素质', max: 20 },
+                { name: '体质健康素质', max: 20 }
+              ],
+              axisName: { color: '#5a6a85', fontSize: 12 },
+              axisLine: { lineStyle: { color: '#dde7f6' } },
+              splitLine: { lineStyle: { color: '#e3ecfa' } },
+              splitArea: { areaStyle: { color: ['rgba(244,248,255,.4)', 'rgba(255,255,255,.3)'] } }
+            },
+            series: [{
+              type: 'radar', symbolSize: 4,
+              data: [
+                { value: [v(0), v(1), v(2), v(3), v(4)], name: '个人', areaStyle: { color: 'rgba(138,108,240,.28)' }, lineStyle: { width: 2 } },
+                { value: [20, 19, 18, 20, 17], name: '班级最高分', areaStyle: { color: 'rgba(53,211,163,.10)' }, lineStyle: { width: 2 } },
+                { value: [14, 13, 12, 13, 12], name: '班级均分', lineStyle: { width: 2, type: 'dashed' } }
+              ]
+            }]
+          }
+        })
+
+        /* ---------------- 个体画像：校园活动圆环（合计 = 活动数） ---------------- */
+        const activityPieOption = computed(() => {
+          const a = student.activityCount
+          return {
+            color: ['#f6c544', '#5b8def', '#35d3a3', '#cdd9ec'],
+            tooltip: { trigger: 'item', formatter: '{b}：{c} 次' },
+            series: [{
+              type: 'pie', radius: ['68%', '92%'],
+              itemStyle: { borderColor: '#fff', borderWidth: 2, borderRadius: 4 },
+              label: { show: false }, labelLine: { show: false },
+              data: [
+                { value: Math.round(a * 16 / 30), name: '文体活动' },
+                { value: Math.round(a * 1 / 30), name: '竞赛活动' },
+                { value: Math.round(a * 8 / 30), name: '社会实践' },
+                { value: Math.round(a * 5 / 30), name: '志愿服务' }
+              ]
+            }]
+          }
+        })
+
+        /* ---------------- 个体画像：成绩趋势（必修/选修，0-100 分） ---------------- */
+        const scoreTrendOption = computed(() => {
+          const s = seedOf(student.id)
+          const cap = (n) => Math.min(98, n)
+          return {
+            color: ['#5b8def', '#35d3a3'],
+            tooltip: { trigger: 'axis' },
+            legend: { right: 0, top: 0, icon: 'circle', itemWidth: 10, itemHeight: 10, textStyle: { color: '#7b8aa5', fontSize: 12 } },
+            grid: { left: 38, right: 16, top: 30, bottom: 26 },
+            xAxis: {
+              type: 'category', boundaryGap: false,
+              data: ['2020年第1学期', '2020年第2学期', '2021年第1学期'],
+              axisLine: { lineStyle: { color: '#dbe5f5' } },
+              axisLabel: { color: '#93a1bb', fontSize: 11 }
+            },
+            yAxis: { type: 'value', max: 100, interval: 50, splitLine: { lineStyle: { color: '#edf2fb' } }, axisLabel: { color: '#93a1bb' } },
+            series: [
+              { name: '必修课', type: 'line', symbol: 'circle', symbolSize: 5, data: [cap(80 + (s % 15)), cap(76 + (s % 18)), cap(84 + (s % 14))], lineStyle: { width: 2.5 }, itemStyle: { color: '#5b8def' } },
+              { name: '选修课', type: 'line', symbol: 'circle', symbolSize: 5, data: [cap(70 + (s % 20)), cap(62 + (s % 25)), cap(72 + (s % 22))], lineStyle: { width: 2.5 }, itemStyle: { color: '#35d3a3' } }
+            ]
+          }
+        })
+
+        /* ---------------- 群组：政治面貌环形（合计 = 学生总数 12,068） ---------------- */
+        const politicalOption = {
+          tooltip: { trigger: 'item', formatter: '{b}<br/>{c} 人（{d}%）' },
+          legend: {
+            orient: 'vertical', right: 4, top: 'center', icon: 'circle',
+            itemWidth: 8, itemHeight: 8, itemGap: 16,
+            textStyle: { color: '#5a6a85', fontSize: 13 }
+          },
+          title: {
+            text: '12,068', subtext: '总人数',
+            left: '36%', top: '38%', textAlign: 'center',
+            textStyle: { fontSize: 20, fontWeight: 700, color: '#1f2d4d' },
+            subtextStyle: { fontSize: 12, color: '#93a1bb' }
+          },
+          series: [{
+            type: 'pie', radius: ['58%', '80%'], center: ['36%', '50%'],
+            itemStyle: { borderColor: '#fff', borderWidth: 3, borderRadius: 4 },
+            label: { show: false }, labelLine: { show: false },
+            data: [
+              { name: '中共党员', value: 1286, itemStyle: { color: '#5b8def' } },
+              { name: '中共预备党员', value: 864, itemStyle: { color: '#35d3a3' } },
+              { name: '共青团员', value: 8420, itemStyle: { color: '#4b7bec' } },
+              { name: '其他', value: 642, itemStyle: { color: '#f6c544' } },
+              { name: '群众', value: 856, itemStyle: { color: '#8a6cf0' } }
+            ]
+          }]
+        }
+
+        /* ---------------- 群组：年龄结构横向柱状（自下而上 18- → 22+） ---------------- */
+        const ageOption = {
+          grid: { left: 70, right: 40, top: 16, bottom: 30 },
+          tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+          xAxis: {
+            type: 'value', max: 200, interval: 50, name: '人数',
+            nameTextStyle: { color: '#93a1bb', fontSize: 11 },
+            splitLine: { lineStyle: { color: '#edf2fb', type: 'dashed' } },
+            axisLabel: { color: '#93a1bb' }
+          },
+          yAxis: {
+            type: 'category',
+            data: ['18岁及以下', '19岁', '20岁', '21岁', '22岁及以上'],
+            axisLine: { show: false }, axisTick: { show: false },
+            axisLabel: { color: '#5a6a85', fontSize: 12 }
+          },
+          series: [{
+            type: 'bar', barWidth: 16,
+            data: [186, 78, 158, 132, 196],
+            itemStyle: {
+              borderRadius: [0, 8, 8, 0],
+              color: { type: 'linear', x: 0, y: 0, x2: 1, y2: 0, colorStops: [{ offset: 0, color: '#7db3ff' }, { offset: 1, color: '#2f6fed' }] }
+            }
+          }]
+        }
+
+        /* ---------------- 群组：少数民族排行（横向进度条，80人/8%） ---------------- */
+        const minorityOption = {
+          grid: { left: 78, right: 50, top: 8, bottom: 8 },
+          tooltip: { trigger: 'item', formatter: '{b}：{c} 人（8%）' },
+          xAxis: { type: 'value', max: 100, show: false },
+          yAxis: {
+            type: 'category',
+            data: ['回族', '壮族', '乌孜别克族', '塔吉克族', '傣族', '维吾尔族'],
+            axisLine: { show: false }, axisTick: { show: false },
+            axisLabel: { color: '#5a6a85', fontSize: 12 }
+          },
+          series: [{
+            type: 'bar', barWidth: 8,
+            data: [80, 80, 80, 80, 80, 80],
+            showBackground: true,
+            backgroundStyle: { color: '#eef3fc', borderRadius: 8 },
+            itemStyle: {
+              borderRadius: 8,
+              color: { type: 'linear', x: 0, y: 0, x2: 1, y2: 0, colorStops: [{ offset: 0, color: '#7db3ff' }, { offset: 1, color: '#2f6fed' }] }
+            },
+            label: { show: true, position: 'right', color: '#5a6a85', fontSize: 12, formatter: '{c}人 8%' }
+          }]
+        }
+
+        /* ---------------- 群组：近5年综测平均分（蓝色渐变面积折线） ---------------- */
+        const comprehensiveOption = {
+          tooltip: { trigger: 'axis' },
+          grid: { left: 40, right: 16, top: 20, bottom: 26 },
+          xAxis: {
+            type: 'category', boundaryGap: false,
+            data: ['2020年', '2021年', '2022年', '2023年', '2024年'],
+            axisLine: { lineStyle: { color: '#dbe5f5' } },
+            axisLabel: { color: '#93a1bb', fontSize: 12 }
+          },
+          yAxis: { type: 'value', max: 100, interval: 50, splitLine: { lineStyle: { color: '#edf2fb' } }, axisLabel: { color: '#93a1bb' } },
+          series: [{
+            type: 'line', smooth: true, symbol: 'circle', symbolSize: 6,
+            data: [30, 96, 40, 56, 24],
+            lineStyle: { width: 2.5, color: '#5b93f5' },
+            itemStyle: { color: '#2f6fed' },
+            areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: 'rgba(91,147,245,.28)' }, { offset: 1, color: 'rgba(91,147,245,.02)' }] } }
+          }]
+        }
+
+        /* ---------------- 群组：近7天请假（绿色面积折线） ---------------- */
+        const leaveOption = {
+          tooltip: { trigger: 'axis' },
+          grid: { left: 40, right: 16, top: 20, bottom: 26 },
+          xAxis: {
+            type: 'category', boundaryGap: false,
+            data: ['04-30', '05-01', '05-02', '05-03', '05-04', '05-05', '05-06'],
+            axisLine: { lineStyle: { color: '#dbe5f5' } },
+            axisLabel: { color: '#93a1bb', fontSize: 12 }
+          },
+          yAxis: { type: 'value', max: 150, interval: 50, splitLine: { lineStyle: { color: '#edf2fb' } }, axisLabel: { color: '#93a1bb' } },
+          series: [{
+            type: 'line', smooth: true, symbol: 'none',
+            data: [118, 72, 145, 48, 122, 96, 108],
+            lineStyle: { width: 2.5, color: '#35d3a3' },
+            itemStyle: { color: '#35d3a3' },
+            areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: 'rgba(53,211,163,.30)' }, { offset: 1, color: 'rgba(53,211,163,.02)' }] } }
+          }]
+        }
+
+        /* ---------------- 群组：生源地分布（中国地图 + 失败降级色块） ---------------- */
+        // 各省生源人数（合计 ≈ 学生总数 12,068，符合人口大省业务逻辑）
+        const provinceSource = [
+          { name: '山东省', value: 1123 }, { name: '河南省', value: 1040 },
+          { name: '江苏省', value: 989 }, { name: '安徽省', value: 780 },
+          { name: '四川省', value: 738 }, { name: '湖北省', value: 637 },
+          { name: '湖南省', value: 570 }, { name: '山西省', value: 528 },
+          { name: '浙江省', value: 494 }, { name: '陕西省', value: 453 },
+          { name: '广东省', value: 453 }, { name: '江西省', value: 411 },
+          { name: '重庆市', value: 411 }, { name: '河北省', value: 319 },
+          { name: '福建省', value: 302 }, { name: '北京市', value: 285 },
+          { name: '广西壮族自治区', value: 285 }, { name: '辽宁省', value: 260 },
+          { name: '上海市', value: 235 }, { name: '贵州省', value: 235 },
+          { name: '黑龙江省', value: 218 }, { name: '吉林省', value: 193 },
+          { name: '云南省', value: 201 }, { name: '天津市', value: 176 },
+          { name: '甘肃省', value: 176 }, { name: '内蒙古自治区', value: 159 },
+          { name: '新疆维吾尔自治区', value: 134 }, { name: '青海省', value: 75 },
+          { name: '宁夏回族自治区', value: 92 }, { name: '海南省', value: 67 },
+          { name: '西藏自治区', value: 25 }, { name: '台湾省', value: 0 },
+          { name: '香港特别行政区', value: 0 }, { name: '澳门特别行政区', value: 0 }
+        ]
+
+        const chinaMapOption = {
+          tooltip: { trigger: 'item', formatter: (p) => `${p.name}<br/>生源人数：${p.value == null || isNaN(p.value) ? 0 : p.value} 人` },
+          visualMap: {
+            min: 0, max: 1200, left: 8, bottom: 6,
+            text: ['1200', '0'], calculable: false,
+            textGap: 8, itemWidth: 12, itemHeight: 90,
+            textStyle: { color: '#7b8aa5', fontSize: 12 },
+            inRange: { color: ['#e8f1ff', '#bcd5fb', '#7fb0f6', '#3f80ee', '#1650c8'] }
+          },
+          series: [{
+            name: '生源地分布', type: 'map', map: 'china', roam: false, zoom: 1.1,
+            label: { show: false },
+            itemStyle: { areaColor: '#e8f1ff', borderColor: '#ffffff', borderWidth: 1 },
+            emphasis: { label: { show: true, color: '#1d5fd8', fontWeight: 600 }, itemStyle: { areaColor: '#ffd88f' } },
+            data: provinceSource
+          }]
+        }
+
+        // 降级方案：地图加载失败 → Top10 省份横向色块
+        const mapFallbackOption = (() => {
+          const top10 = provinceSource.filter((p) => p.value > 0).sort((a, b) => b.value - a.value).slice(0, 10)
+          return {
+            grid: { left: 90, right: 60, top: 16, bottom: 16 },
+            tooltip: { trigger: 'item', formatter: '{b}：{c} 人' },
+            xAxis: { type: 'value', show: false },
+            yAxis: {
+              type: 'category',
+              data: top10.map((p) => p.name).reverse(),
+              axisLine: { show: false }, axisTick: { show: false },
+              axisLabel: { color: '#5a6a85', fontSize: 12 }
+            },
+            series: [{
+              type: 'bar', barWidth: 14,
+              data: top10.map((p) => p.value).reverse(),
+              itemStyle: {
+                borderRadius: [0, 7, 7, 0],
+                color: { type: 'linear', x: 0, y: 0, x2: 1, y2: 0, colorStops: [{ offset: 0, color: '#7db3ff' }, { offset: 1, color: '#1d5fd8' }] }
+              },
+              label: { show: true, position: 'right', color: '#5a6a85', fontSize: 12, formatter: '{c} 人' }
+            }]
+          }
+        })()
+
+        // 地图 GeoJSON 加载：本地缓存文件 → 公网 CDN，全部失败返回 false（不抛错）
+        let chinaGeoPromise = null
+        const loadChinaGeo = () => {
+          if (!hasEcharts) return Promise.resolve(false)
+          if (typeof echarts.getMap === 'function' && echarts.getMap('china')) return Promise.resolve(true)
+          if (chinaGeoPromise) return chinaGeoPromise
+          const sources = [
+            './public/geo/china.json',
+            'https://geo.datav.aliyun.com/areas_v3/bound/100000_full.json'
+          ]
+          chinaGeoPromise = (async () => {
+            for (const url of sources) {
+              try {
+                const res = await fetch(url)
+                if (!res.ok) continue
+                const geoJson = await res.json()
+                echarts.registerMap('china', geoJson)
+                return true
+              } catch (e) { /* 尝试下一个源 */ }
+            }
+            return false
+          })()
+          return chinaGeoPromise
+        }
+
+        const renderMapChart = async () => {
+          const chart = getChart('mapChart')
+          if (!chart) return
+          const ok = await loadChinaGeo()
+          if (chart.isDisposed()) return
+          chart.setOption(ok ? chinaMapOption : mapFallbackOption)
+        }
+
+        /* ---------------- 初始化入口（视图切换 / 首次挂载时调用） ---------------- */
+        const initIndividualCharts = () => {
+          const r = getChart('radarChart'); r && r.setOption(radarOption.value)
+          const p = getChart('pieChart'); p && p.setOption(activityPieOption.value)
+          const l = getChart('lineChart'); l && l.setOption(scoreTrendOption.value)
+        }
+
+        const initGroupCharts = () => {
+          const pc = getChart('politicalChart'); pc && pc.setOption(politicalOption)
+          const ag = getChart('ageChart'); ag && ag.setOption(ageOption)
+          const mi = getChart('minorityChart'); mi && mi.setOption(minorityOption)
+          const cp = getChart('comprehensiveChart'); cp && cp.setOption(comprehensiveOption)
+          const lv = getChart('leaveChart'); lv && lv.setOption(leaveOption)
+          renderMapChart()
+        }
+
+        // 视图切换：旧 DOM 销毁 → 释放全部旧实例 → nextTick 后按当前视图重建图表
+        const onViewEntered = () => {
+          disposeAllCharts()
+          nextTick(() => {
+            if (activeMenu.value === 'individual') initIndividualCharts()
+            else if (activeMenu.value === 'group') initGroupCharts()
+          })
+        }
+        watch(activeMenu, onViewEntered)
+
+        /* ==================== 学生人物图片（原生 Image 加载） ==================== */
+        const personImgSrc =
+          'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=' +
+          encodeURIComponent('cute 3D pixar style cartoon boy student with big green eyes, messy brown hair, light freckles, gentle smile, mint green hoodie under white zip-up jacket with orange round badge on chest, hands in pockets, clean plain light blue studio background, soft natural lighting, 3D render, high quality, half body portrait, no accessories') +
+          '&image_size=portrait_4_3'
+        const personLoading = ref(true)
+
+        const onPersonImgLoad = (e) => {
+          // 原生 Image 元素，直接从 event 获取宽高
+          const img = e.target
+          personLoading.value = false
+        }
+        const onPersonImgError = () => {
+          personLoading.value = false
+        }
+
+        onMounted(() => {
+          nextTick(() => initIndividualCharts())
+        })
+
+        /* 头像 */
+        const avatarImg =
+          'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=' +
+          encodeURIComponent('photo portrait of a young asian female college student with long dark hair, gentle smile, soft studio light, clean light blue background, realistic') +
+          '&image_size=square_hd'
+
+        /* ==================== 学生画像查询 ==================== */
+        const allTags = ['学业优秀', 'CET-6', '国家奖学金', '困难生', '三好学生', 'CET-4', '优秀学生干部', '入党积极分子']
+        const surnames = '王李张刘陈杨黄赵周吴徐孙胡朱高林何郭马罗梁宋郑谢韩唐冯于董萧程曹袁邓许傅沈曾彭吕苏卢蒋蔡贾丁魏薛叶阎余潘杜戴夏钟汪田任姜范方石姚谭廖邹熊金陆郝孔白崔康毛邱秦江史顾侯邵孟龙万段雷钱汤尹黎易常武乔贺赖龚文'
+        const givenNames = ['伟', '芳', '娜', '秀英', '敏', '静', '丽', '强', '磊', '军', '洋', '勇', '艳', '杰', '娟', '涛', '明', '超', '秀兰', '霞', '平', '刚', '桂英', '文', '博', '欣', '思源', '子涵', '浩然', '雨萱']
+
+        const rng = (seed) => {
+          let s = seed % 2147483647
+          if (s <= 0) s += 2147483646
+          return () => (s = (s * 16807) % 2147483647) / 2147483647
+        }
+
+        // 生成 60 名学生 Mock 数据
+        const studentList = (() => {
+          const r = rng(20240915)
+          const list = []
+          const colleges = collegeOptions
+          const majors = {
+            '机械学院': ['机械设计制造及其自动化', '车辆工程', '能源与动力工程'],
+            '计算学院': ['计算机科学与技术', '软件工程', '人工智能'],
+            '外国语学院': ['英语', '俄语', '日语'],
+            '经济管理学院': ['工商管理', '会计学', '市场营销'],
+            '土木建筑工程学院': ['土木工程', '建筑学', '工程管理']
+          }
+          const grades = ['2018级', '2019级', '2020级', '2021级']
+          for (let i = 0; i < 60; i++) {
+            const college = colleges[Math.floor(r() * colleges.length)]
+            const major = majors[college][Math.floor(r() * majors[college].length)]
+            const grade = grades[Math.floor(r() * grades.length)]
+            const gender = r() > 0.45 ? '男' : '女'
+            const surname = surnames[Math.floor(r() * surnames.length)]
+            const given = givenNames[Math.floor(r() * givenNames.length)]
+            const name = surname + given
+            const score = Math.floor(55 + r() * 43)
+            const gpa = (3 + r() * 7).toFixed(1)
+            const classTotal = 45 + Math.floor(r() * 15)
+            const classRank = 1 + Math.floor(r() * classTotal)
+            const tags = []
+            const tagCount = 1 + Math.floor(r() * 3)
+            for (let t = 0; t < tagCount; t++) tags.push(allTags[Math.floor(r() * allTags.length)])
+            const uniqTags = [...new Set(tags)]
+            list.push({
+              id: `01116${String(100 + i).padStart(3, '0')}`,
+              name, gender, college, major, grade,
+              status: r() > 0.08 ? '在学' : '不在学',
+              score, gpa, classRank, classTotal,
+              tags: uniqTags
+            })
+          }
+          return list
+        })()
+
+        // 筛选草稿（输入控件绑定）与已应用筛选
+        const draft = reactive({ keyword: '', college: '全部学院', grade: '全部年级', gender: '全部', status: '全部' })
+        const filters = reactive({ keyword: '', college: '全部学院', grade: '全部年级', gender: '全部', status: '全部' })
+        const page = ref(1)
+        const pageSize = 10
+
+        const searchNow = () => {
+          Object.assign(filters, draft)
+          page.value = 1
+        }
+        const resetSearch = () => {
+          Object.assign(draft, { keyword: '', college: '全部学院', grade: '全部年级', gender: '全部', status: '全部' })
+          searchNow()
+        }
+
+        const filteredStudents = computed(() => {
+          const kw = filters.keyword.trim()
+          return studentList.filter((s) => {
+            if (kw && !s.id.includes(kw) && !s.name.includes(kw)) return false
+            if (filters.college !== '全部学院' && s.college !== filters.college) return false
+            if (filters.grade !== '全部年级' && s.grade !== filters.grade) return false
+            if (filters.gender !== '全部' && s.gender !== filters.gender) return false
+            if (filters.status !== '全部' && s.status !== filters.status) return false
+            return true
+          })
+        })
+
+        const totalPages = computed(() => Math.max(1, Math.ceil(filteredStudents.value.length / pageSize)))
+        const pagedStudents = computed(() => {
+          const start = (page.value - 1) * pageSize
+          return filteredStudents.value.slice(start, start + pageSize)
+        })
+
+        // 点击学生 → 写入 student 响应式对象 → 切到个体画像（onViewEntered 重渲染图表）
+        const goPortrait = (s) => {
+          Object.assign(student, {
+            name: s.name,
+            id: s.id,
+            gender: s.gender,
+            college: s.college,
+            className: s.major + ' ' + s.grade,
+            political: s.tags.includes('入党积极分子') ? '中共党员' : '共青团员',
+            dorm: '江宁校区' + (1 + seedOf(s.id) % 8) + '栋' + (1 + seedOf(s.id) % 30) + String.fromCharCode(65 + seedOf(s.id) % 4),
+            score: s.score,
+            scoreDelta: 5 + (seedOf(s.id) % 30),
+            classRank: s.classRank,
+            classTotal: s.classTotal,
+            majorRank: 1 + (seedOf(s.id) % 200),
+            majorTotal: 200 + (seedOf(s.id) % 60),
+            rankDelta: 1 + (seedOf(s.id) % 10),
+            activityCount: 15 + (seedOf(s.id) % 35),
+            competition: seedOf(s.id) % 4,
+            practice: 3 + (seedOf(s.id) % 8),
+            volunteer: 1 + (seedOf(s.id) % 12),
+            cardBalance: 50 + (seedOf(s.id) % 400),
+            books: seedOf(s.id) % 12,
+            onlineHours: 1 + (seedOf(s.id) % 12),
+            leaveCount: seedOf(s.id) % 40,
+            gpa: parseFloat(s.gpa),
+            credits: 50 + (seedOf(s.id) % 30),
+            failCount: s.score < 60 ? 2 : 0,
+            awards: 1 + (seedOf(s.id) % 5),
+            scholarship: s.tags.includes('国家奖学金') ? 1 : 0,
+            honors: 1 + (seedOf(s.id) % 3),
+            punish: 0,
+            tags: s.tags,
+            bubbles: ['学生楷模', '学霸', '90后'].filter((_, i) => i < 1 + (seedOf(s.id) % 3))
+          })
+          activeTab.value = '总览'
+          activeMenu.value = 'individual'
+        }
+
+        return {
+          menus, activeMenu,
+          subTabs, activeTab, queryDate,
+          student, lifeItems, rankTable,
+          avatarImg, personImgSrc, personLoading, onPersonImgLoad, onPersonImgError,
+          // 群组分析
+          collegeOptions, groupCollege, groupDate,
+          scopeOptions, activeScope,
+          groupTabs, activeGroupTab,
+          collegeDist, overview, groupGauges, qualityRings,
+          overviewImg,
+          // 学生画像查询
+          draft, filters, searchNow, resetSearch,
+          filteredStudents, pagedStudents, totalPages, page, pageSize,
+          goPortrait,
+          // 图表
+          onViewEntered
+        }
+      }
+    }).mount('#app')
+  </script>
+</body>
+</html>
